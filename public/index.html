@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuVault - Versioned Wiki & Documentation Engine</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navbar -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <i class="fa-solid fa-book-bookmark brand-icon"></i>
+        <div class="brand-text">
+          <span class="brand-name">DocuVault</span>
+          <span class="brand-tag">MongoDB Versioned Engine</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-seed" class="btn btn-secondary btn-sm" title="Populate database with sample pages and revisions">
+          <i class="fa-solid fa-database"></i> Seed Demo Data
+        </button>
+        <button id="btn-create-page-open" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus"></i> New Page
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <div class="workspace">
+      <!-- Sidebar / Page Directory -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="page-search" placeholder="Filter pages..." autocomplete="off">
+          </div>
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="active">Active</button>
+            <button class="filter-tab" data-filter="all">All Pages</button>
+          </div>
+        </div>
+
+        <div class="sidebar-page-list" id="sidebar-pages">
+          <div class="loading-state">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Loading pages...
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <span id="page-count-badge">0 pages</span>
+          <span class="compound-tag" title="Revisions indexed via { pageId: 1, version: -1 }">
+            <i class="fa-solid fa-bolt"></i> Indexed History
+          </span>
+        </div>
+      </aside>
+
+      <!-- Main Viewer & Action Stage -->
+      <main class="main-content" id="main-viewer">
+        <div class="empty-state" id="empty-state">
+          <i class="fa-regular fa-file-lines empty-icon"></i>
+          <h2>Select a Documentation Page</h2>
+          <p>Choose a page from the left sidebar or create a new one to start writing and managing version histories.</p>
+          <button class="btn btn-primary" onclick="openCreateModal()">
+            <i class="fa-solid fa-plus"></i> Create Your First Page
+          </button>
+        </div>
+
+        <!-- Active Page Container -->
+        <article class="article-pane" id="article-pane" style="display: none;">
+          <!-- Article Top Banner / Controls -->
+          <div class="article-header">
+            <div class="article-meta">
+              <div class="meta-row-top">
+                <span class="version-badge" id="badge-version">v1</span>
+                <span class="status-badge status-active" id="badge-status">Active</span>
+                <span class="meta-slug">
+                  <i class="fa-solid fa-link"></i> <code id="text-slug">slug</code>
+                </span>
+              </div>
+              <h1 class="article-title" id="text-title">Page Title</h1>
+              <div class="meta-row-bottom">
+                <span><i class="fa-regular fa-clock"></i> Last updated: <span id="text-updated-at">Just now</span></span>
+                <span><i class="fa-solid fa-history"></i> Revisions: <span id="text-revision-count">0</span></span>
+              </div>
+            </div>
+
+            <div class="article-actions">
+              <button id="btn-edit-page" class="btn btn-outline" title="Edit content & title">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+              </button>
+              <button id="btn-view-history" class="btn btn-outline" title="View revisions timeline">
+                <i class="fa-solid fa-clock-rotate-left"></i> History
+              </button>
+              <button id="btn-view-explain" class="btn btn-outline" title="Inspect MongoDB .explain('executionStats')">
+                <i class="fa-solid fa-chart-line"></i> Explain Plan
+              </button>
+              <button id="btn-archive-page" class="btn btn-outline btn-danger-outline" title="Soft delete page">
+                <i class="fa-solid fa-box-archive"></i> Archive
+              </button>
+              <button id="btn-restore-page" class="btn btn-outline btn-success-outline" style="display: none;" title="Restore archived page">
+                <i class="fa-solid fa-trash-arrow-up"></i> Restore
+              </button>
+            </div>
+          </div>
+
+          <!-- Viewing Snapshot Banner (if viewing past revision) -->
+          <div class="snapshot-banner" id="snapshot-banner" style="display: none;">
+            <div class="snapshot-banner-content">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <strong>Viewing Historical Snapshot (<span id="snapshot-version-label">v1</span>)</strong>
+                <p id="snapshot-meta-label">Archived on ... by ...</p>
+              </div>
+            </div>
+            <div class="snapshot-banner-actions">
+              <button id="btn-snapshot-rollback" class="btn btn-warning btn-sm">
+                <i class="fa-solid fa-rotate-left"></i> Rollback to this Version
+              </button>
+              <button id="btn-snapshot-exit" class="btn btn-secondary btn-sm">
+                Return to Live View
+              </button>
+            </div>
+          </div>
+
+          <!-- Content Viewer -->
+          <div class="content-body" id="rendered-content">
+            <!-- Rendered Markdown goes here -->
+          </div>
+        </article>
+      </main>
+    </div>
+  </div>
+
+  <!-- Create Page Modal -->
+  <div class="modal-overlay" id="modal-create" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-circle-plus"></i> Create New Documentation Page</h3>
+        <button class="modal-close" onclick="closeModal('modal-create')">&times;</button>
+      </div>
+      <form id="form-create-page">
+        <div class="form-group">
+          <label for="create-title">Page Title <span class="required">*</span></label>
+          <input type="text" id="create-title" class="form-control" placeholder="e.g. Authentication & Token Lifecycle" required>
+        </div>
+        <div class="form-group">
+          <label for="create-slug">URL Slug (kebab-case) <span class="field-hint">Auto-generated if left empty</span></label>
+          <div class="slug-input-wrapper">
+            <span class="slug-prefix">/api/pages/</span>
+            <input type="text" id="create-slug" class="form-control" placeholder="auth-token-lifecycle">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="create-changed-by">Author / Creator Name (optional)</label>
+          <input type="text" id="create-changed-by" class="form-control" placeholder="e.g. Alice Chen">
+        </div>
+        <div class="form-group">
+          <label for="create-content">Markdown Content <span class="required">*</span></label>
+          <textarea id="create-content" class="form-control font-mono" rows="12" placeholder="# Title&#10;&#10;Write your documentation here using standard markdown..." required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-create">
+            <i class="fa-solid fa-check"></i> Publish Page (v1)
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Page Modal -->
+  <div class="modal-overlay" id="modal-edit" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-pen"></i> Edit Page Content</h3>
+        <button class="modal-close" onclick="closeModal('modal-edit')">&times;</button>
+      </div>
+      <form id="form-edit-page">
+        <div class="notice-box">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>Immutable Audit Guarantee:</strong>
+            The current state will be archived as revision <code id="edit-archived-version-label">v1</code> before updating. The live page will advance to <code id="edit-next-version-label">v2</code>.
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-title">Page Title <span class="required">*</span></label>
+          <input type="text" id="edit-title" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-changed-by">Author / Reason for Edit</label>
+          <input type="text" id="edit-changed-by" class="form-control" placeholder="e.g. Updated API rate limit specs (Bob)">
+        </div>
+        <div class="form-group">
+          <label for="edit-content">Markdown Content <span class="required">*</span></label>
+          <textarea id="edit-content" class="form-control font-mono" rows="12" required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-edit">
+            <i class="fa-solid fa-floppy-disk"></i> Save & Archive Previous State
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Revision History Modal / Panel -->
+  <div class="modal-overlay" id="modal-history" style="display: none;">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div>
+          <h3><i class="fa-solid fa-clock-rotate-left"></i> Revision History Timeline</h3>
+          <span class="modal-subtitle" id="history-subtitle">Page: architecture-overview</span>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-history')">&times;</button>
+      </div>
+      <div class="history-content">
+        <div class="history-index-notice">
+          <i class="fa-solid fa-bolt"></i> Fast index lookup powered by compound index <code>{ pageId: 1, version: -1 }</code>
+        </div>
+        <div class="timeline" id="revisions-timeline">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-history')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rollback Confirmation Modal -->
+  <div class="modal-overlay" id="modal-rollback" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="text-warning"><i class="fa-solid fa-rotate-left"></i> Confirm Version Rollback</h3>
+        <button class="modal-close" onclick="closeModal('modal-rollback')">&times;</button>
+      </div>
+      <form id="form-rollback">
+        <input type="hidden" id="rollback-target-version">
+        <p class="rollback-warning">
+          Are you sure you want to restore content from revision <strong id="rollback-version-display">v1</strong>?
+        </p>
+        <div class="audit-steps-box">
+          <strong>Rollback Execution Sequence:</strong>
+          <ol>
+            <li>Archive current live version (<strong id="rollback-current-version-label">v3</strong>) into <code>page_revisions</code> collection.</li>
+            <li>Overwrite live page content and title with snapshot from <strong id="rollback-target-version-label">v1</strong>.</li>
+            <li>Increment <code>currentVersion</code> to <strong id="rollback-future-version-label">v4</strong>.</li>
+          </ol>
+        </div>
+        <div class="form-group">
+          <label for="rollback-changed-by">Rollback Author / Reason</label>
+          <input type="text" id="rollback-changed-by" class="form-control" placeholder="e.g. Restored prior release specs after incident #402">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-rollback')">Cancel</button>
+          <button type="submit" class="btn btn-warning" id="btn-confirm-rollback">
+            <i class="fa-solid fa-rotate-left"></i> Execute Rollback
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Explain Plan Modal -->
+  <div class="modal-overlay" id="modal-explain" style="display: none;">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div>
+          <h3><i class="fa-solid fa-chart-line"></i> MongoDB .explain("executionStats") Inspector</h3>
+          <span class="modal-subtitle">Proving compound index utilization <code>{ pageId: 1, version: -1 }</code></span>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-explain')">&times;</button>
+      </div>
+      <div class="explain-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Winning Plan Stage</span>
+            <span class="stat-val highlight" id="stat-stage">IXSCAN</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Index Used</span>
+            <span class="stat-val" id="stat-index">pageId_1_version_-1</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Docs Examined</span>
+            <span class="stat-val" id="stat-docs">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Execution Time</span>
+            <span class="stat-val" id="stat-time">0 ms</span>
+          </div>
+        </div>
+        <h4 style="margin: 1rem 0 0.5rem 0;">Raw Query Planner & ExecutionStats Output</h4>
+        <pre class="code-block" id="explain-raw-output">Loading explain output...</pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-explain')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
+

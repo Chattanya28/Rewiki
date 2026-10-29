@@ -1,0 +1,32 @@
+{
+  "name": "versioned-wiki-mongodb",
+  "version": "1.0.0",
+  "description": "Production-ready versioned wiki and documentation system using MongoDB, Express, and Mongoose with auditable revision history and rollback capabilities.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js",
+    "explain": "node src/scripts/explain.js",
+    "test": "node tests/api.test.js"
+  },
+  "keywords": [
+    "mongodb",
+    "mongoose",
+    "express",
+    "wiki",
+    "documentation",
+    "versioning",
+    "audit-trail",
+    "rollback"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0"
+  }
+}
